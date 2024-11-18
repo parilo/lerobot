@@ -1,9 +1,9 @@
 import time
-import torch as t
 import numpy as np
 from lerobot.common.robot2.util import read_json_file
-from lerobot.common.robot_devices.motors.feetech import FeetechMotorsBus
-from lerobot.common.robot2.feetech_robot import FeetechRobot  # Adjust import path as needed
+from lerobot.common.robot2.virtual_robot import VirtualRobot
+from vrteleop.ik import IK
+import torch as t
 
 
 def main():
@@ -11,25 +11,15 @@ def main():
     np.set_printoptions(suppress=True, precision=4)
     t.set_printoptions(sci_mode=False, precision=4)
 
-    # Initialize FeetechMotorsBus with specific motor configuration
-    servos = FeetechMotorsBus(
-        port='/dev/tty.usbmodem58CD1772711',
-        motors={
-            # name: (index, model)
-            'shoulder_pan': [1, "sts3215"],
-            'shoulder_lift': [2, "sts3215"],
-            'elbow_flex': [3, "sts3215"],
-            'wrist_flex': [4, "sts3215"],
-            'wrist_roll': [5, "sts3215"],
-            'gripper': [6, "sts3215"],
-        }
-    )
-
-    motors_calibration_path = '.cache/calibration/so100/main_follower.json'
-    servos.set_calibration(read_json_file(motors_calibration_path))
-
     # Initialize the robot with the servos
-    robot = FeetechRobot(motors=servos)
+    urdf_path = '/Users/parilo/devel/lerobot/SO-ARM100/URDF/SO_5DOF_ARM100_8j_URDF.SLDASM/urdf/SO_5DOF_ARM100_8j_URDF.SLDASM_2.urdf'
+    robot = VirtualRobot(
+        urdf_path=urdf_path,
+        fk=IK(
+            urdf_path=urdf_path,
+            end_link_name="Moving Jaw",
+        ),
+    )
 
     try:
         # Connect to the robot
@@ -48,7 +38,7 @@ def main():
 
         # Set up sinusoidal movement
 
-        num_steps = 300
+        num_steps = 1000
         freq = 25
 
         for ind in range(num_steps):
@@ -61,6 +51,7 @@ def main():
 
             print(target_pos)
             robot.position_control(target_pos)
+            # robot.position_control(observation.pos)
             time.sleep(1 / freq)
 
         # Move back to relax position

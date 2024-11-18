@@ -1,15 +1,9 @@
 import numpy as np
-from dataclasses import dataclass
+from lerobot.common.robot2.robot import MotorData, Robot
 from lerobot.common.robot_devices.motors.feetech import FeetechMotorsBus
 
 
-@dataclass
-class MotorData:
-    pos: np.ndarray
-    vel: np.ndarray
-
-
-class FeetechRobot:
+class FeetechRobot(Robot):
 
     def __init__(self, motors: FeetechMotorsBus) -> None:
         self.motors = motors
