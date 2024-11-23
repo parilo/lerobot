@@ -2,11 +2,15 @@ import open3d as o3d
 import numpy as np
 from vrteleop.urdf_parser_v2 import URDFParserV2
 from lerobot.common.robot2.robot import MotorData, Robot
-from vrteleop.ik import IK
+from vrteleop.ik import Kinematics
 
 
 class VirtualRobot(Robot):
-    def __init__(self, urdf_path: str, fk: IK):
+    def __init__(
+            self, urdf_path: str,
+            kinematics: Kinematics,
+            end_link_name: str,
+            ):
         """
         Initialize the virtual robot for visualization.
 
@@ -18,7 +22,10 @@ class VirtualRobot(Robot):
         self.parser = URDFParserV2(urdf_path)
         self.link_stl_map = self.parser.get_link_stl_map()
         self.joint_count = len(self.parser.get_links())
-        self.ik = fk
+        self.kinematics = kinematics
+        self.end_link_name = end_link_name
+        self.end_link_frame = None
+        self.end_link_frame_tr = np.eye(4)
         self.current_pos = np.zeros(self.joint_count)
         self.current_vel = np.zeros(self.joint_count)
         self.visualizer = o3d.visualization.Visualizer()
@@ -49,8 +56,12 @@ class VirtualRobot(Robot):
                 print(f"Error loading STL {stl_path}: {e}")
 
         # Create a coordinate frame for the link
-        frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2)  # Adjust size as needed
+        frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2)
         self.visualizer.add_geometry(frame)
+
+        # Create a coordinate frame for the end link
+        self.end_link_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        self.visualizer.add_geometry(self.end_link_frame)
 
         self.connected = True
 
@@ -83,7 +94,7 @@ class VirtualRobot(Robot):
         self.current_pos = target_pos
 
         # Compute forward kinematics
-        fk_results = self.ik.fk(np.deg2rad(self.current_pos))
+        fk_results = self.kinematics.fk(np.deg2rad(self.current_pos))
 
         # Update visualization
         for link_name, mesh in self.geometries.items():
@@ -92,13 +103,16 @@ class VirtualRobot(Robot):
 
                 # Undo the current transformation
                 current_transform = self.current_transformations[link_name]
-                mesh.transform(np.linalg.inv(current_transform))
 
                 # Apply the new transformation
-                mesh.transform(transform)
+                mesh.transform(transform @ np.linalg.inv(current_transform))
 
                 # Store the new transformation
                 self.current_transformations[link_name] = transform
+                if link_name == self.end_link_name:
+                    self.end_link_frame.transform(transform @ np.linalg.inv(self.end_link_frame_tr))
+                    self.end_link_frame_tr = transform
+                    self.visualizer.update_geometry(self.end_link_frame)
 
                 # Update the geometry in the visualizer
                 self.visualizer.update_geometry(mesh)

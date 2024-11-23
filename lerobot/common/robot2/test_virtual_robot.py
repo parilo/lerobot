@@ -15,7 +15,7 @@ def main():
     urdf_path = '/Users/parilo/devel/lerobot/SO-ARM100/URDF/SO_5DOF_ARM100_8j_URDF.SLDASM/urdf/SO_5DOF_ARM100_8j_URDF.SLDASM_2.urdf'
     robot = VirtualRobot(
         urdf_path=urdf_path,
-        fk=IK(
+        kinematics=IK(
             urdf_path=urdf_path,
             end_link_name="Moving Jaw",
         ),

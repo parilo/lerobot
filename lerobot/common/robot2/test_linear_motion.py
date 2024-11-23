@@ -3,25 +3,26 @@ import numpy as np
 from lerobot.common.robot2.joint_traj import generate_joint_trajectory, play_joint_trajectory
 from lerobot.common.robot2.robot import Robot
 from lerobot.common.robot2.virtual_robot import VirtualRobot
-from vrteleop.ik import IK
+from vrteleop.ik import Kinematics
 
 
 def main():
 
-    np.set_printoptions(suppress=True, precision=4)
+    np.set_printoptions(suppress=True, precision=2)
     # t.set_printoptions(sci_mode=False, precision=4)
 
     # Initialize the robot with the servos
-    urdf_path = '/Users/parilo/devel/lerobot/SO-ARM100/URDF/SO_5DOF_ARM100_8j_URDF.SLDASM/urdf/SO_5DOF_ARM100_8j_URDF.SLDASM_2.urdf'
+    urdf_path = '/Users/parilo/devel/armlib/SO-ARM100/URDF/SO_5DOF_ARM100_8j_URDF.SLDASM/urdf/SO_5DOF_ARM100_8j_URDF.SLDASM_2.urdf'
 
-    ik = IK(
+    kinematics = Kinematics(
         urdf_path=urdf_path,
         end_link_name="Moving Jaw",
     )
 
     robot = VirtualRobot(
         urdf_path=urdf_path,
-        fk=ik,
+        kinematics=kinematics,
+        end_link_name="Moving Jaw",
     )
 
     try:
@@ -53,15 +54,15 @@ def main():
             observation = robot.read()
             cur_joints = observation.pos
 
-            eez = ik.fk(np.deg2rad(cur_joints))['Moving Jaw'][2, 3]
-            if eez > 0.25:
+            coord = kinematics.fk(np.deg2rad(cur_joints))['Moving Jaw'][1, 3]
+            if coord > 0.1:
                 dir = -1
-            if eez < 0.05:
+            if coord < -0.1:
                 dir = 1
 
-            djoints = np.rad2deg(ik.djoints(
-                th=np.deg2rad(cur_joints),
-                ddec=np.array([0, 0, dir * 0.001, 0, 0, 0]),
+            djoints = np.rad2deg(kinematics.djoints(
+                js=np.deg2rad(cur_joints),
+                dx=np.array([0, dir * 0.001, 0, 0, 0, 0]),
             ))
             robot.position_control(cur_joints + djoints)
             time.sleep(1 / freq)
