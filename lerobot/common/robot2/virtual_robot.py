@@ -1,5 +1,6 @@
 import open3d as o3d
 import numpy as np
+from typing import Optional
 from vrteleop.urdf_parser_v2 import URDFParserV2
 from lerobot.common.robot2.robot import MotorData, Robot
 from vrteleop.ik import Kinematics
@@ -10,6 +11,7 @@ class VirtualRobot(Robot):
             self, urdf_path: str,
             kinematics: Kinematics,
             end_link_name: str,
+            start_joints: Optional[np.ndarray] = None,
             ):
         """
         Initialize the virtual robot for visualization.
@@ -21,13 +23,17 @@ class VirtualRobot(Robot):
         self.urdf_path = urdf_path
         self.parser = URDFParserV2(urdf_path)
         self.link_stl_map = self.parser.get_link_stl_map()
-        self.joint_count = len(self.parser.get_links())
         self.kinematics = kinematics
+        self.joint_count = kinematics.num_dof
         self.end_link_name = end_link_name
         self.end_link_frame = None
         self.end_link_frame_tr = np.eye(4)
-        self.current_pos = np.zeros(self.joint_count)
-        self.current_vel = np.zeros(self.joint_count)
+        self.current_jpos = (
+            np.zeros(self.joint_count)
+            if start_joints is None
+            else start_joints
+        )
+        self.current_jvel = np.zeros(self.joint_count)
         self.visualizer = o3d.visualization.Visualizer()
         self.geometries = {}
         self.current_transformations = {}
@@ -78,12 +84,12 @@ class VirtualRobot(Robot):
 
     def relax(self) -> None:
         """Set the robot to a relaxed state."""
-        self.current_pos = np.zeros(self.joint_count)
-        self.current_vel = np.zeros(self.joint_count)
+        self.current_jpos = np.zeros(self.joint_count)
+        self.current_jvel = np.zeros(self.joint_count)
 
     def read(self) -> MotorData:
         """Read the current state of the robot."""
-        return MotorData(pos=self.current_pos.copy(), vel=self.current_vel.copy())
+        return MotorData(pos=self.current_jpos.copy(), vel=self.current_jvel.copy())
 
     def position_control(self, target_pos: np.ndarray) -> None:
         """Move the robot to the specified target position."""
@@ -91,10 +97,10 @@ class VirtualRobot(Robot):
             raise RuntimeError("VirtualRobot is not connected.")
 
         print(f"Moving to target position: {target_pos}")
-        self.current_pos = target_pos
+        self.current_jpos = target_pos
 
         # Compute forward kinematics
-        fk_results = self.kinematics.fk(np.deg2rad(self.current_pos))
+        fk_results = self.kinematics.fk(self.current_jpos)
 
         # Update visualization
         for link_name, mesh in self.geometries.items():

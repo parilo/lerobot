@@ -81,7 +81,6 @@ def main():
                 dx=np.array([0, vy, vz, 0, 0, 0]),
             ))
             print(f'--- cur_joints {cur_joints}')
-            # djoints = np.zeros_like(cur_joints)
             robot.position_control(cur_joints + djoints)
             time.sleep(1 / freq)
 
